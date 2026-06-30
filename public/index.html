@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Dungeon Master — Creative Journeys</title>
+  <meta name="description" content="AI-powered D&D 5e Dungeon Master for Creative Journeys sessions — built on Matt Mercer and Brennan Lee Mulligan storytelling principles." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.3.0/webfont/tabler-icons.min.css" />
+  <link rel="stylesheet" href="/css/dm.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     NEDS HUD — Fixed upper-right corner
+═══════════════════════════════════════════════════ -->
+<div id="neds-hud">
+  <div class="neds-header" onclick="UI.toggleNEDS()">
+    <div class="neds-icon">N</div>
+    <span class="neds-title">NEDS</span>
+    <i class="ti ti-chevron-down neds-toggle" aria-hidden="true"></i>
+  </div>
+  <div class="neds-body" id="neds-collapse">
+    <div id="neds-domains"><!-- rendered by JS --></div>
+    <div class="neds-total">
+      <span class="neds-total-label">Overall baseline</span>
+      <span class="neds-total-val" id="neds-total">73%</span>
+    </div>
+    <div class="neds-edit-row">
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('mind')">Mind</button>
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('body')">Body</button>
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('spirit')">Spirit</button>
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('social')">Social</button>
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('creative')">Create</button>
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('purpose')">Purpose</button>
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('environment')">Environ</button>
+      <button class="neds-chip" onclick="UI.updateNEDSDomain('finance')">Finance</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     APP SHELL
+═══════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <header id="dm-header">
+    <div class="header-crest" aria-hidden="true"><i class="ti ti-crown"></i></div>
+    <div>
+      <div class="header-title">The Dungeon Master</div>
+      <div class="header-sub">Creative Journeys · D&D 5e · AI-Powered</div>
+    </div>
+    <div class="header-right">
+      <span class="session-badge" id="session-badge">No campaign active</span>
+      <button class="sound-btn" id="voice-toggle" onclick="UI.toggleVoice()" title="Toggle voice narration" aria-label="Toggle voice">
+        <i class="ti ti-microphone"></i>
+      </button>
+      <button class="sound-btn" id="ambient-btn" onclick="DM.toggleAmbient()" title="Toggle ambient audio" aria-label="Toggle ambient sound">
+        <i class="ti ti-music"></i>
+      </button>
+      <button class="sound-btn" onclick="DM.saveCampaign()" title="Save campaign" aria-label="Save">
+        <i class="ti ti-device-floppy"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav id="dm-nav" aria-label="Main navigation">
+    <button class="nav-btn active" id="nav-play" onclick="UI.switchTab('play')">
+      <i class="ti ti-sword" aria-hidden="true"></i> Play
+    </button>
+    <button class="nav-btn" id="nav-session0" onclick="UI.switchTab('session0')">
+      <i class="ti ti-users" aria-hidden="true"></i> Session Zero
+    </button>
+    <button class="nav-btn" id="nav-npcs" onclick="UI.switchTab('npcs')">
+      <i class="ti ti-masks-theater" aria-hidden="true"></i> NPCs
+    </button>
+    <button class="nav-btn" id="nav-dice" onclick="UI.switchTab('dice')">
+      <i class="ti ti-dice-5" aria-hidden="true"></i> Dice
+    </button>
+    <button class="nav-btn" id="nav-quests" onclick="UI.switchTab('quests')">
+      <i class="ti ti-map" aria-hidden="true"></i> Quests
+    </button>
+    <button class="nav-btn" id="nav-tracker" onclick="UI.switchTab('tracker')">
+      <i class="ti ti-notebook" aria-hidden="true"></i> Tracker
+    </button>
+  </nav>
+
+  <!-- ══ PLAY PANEL ════════════════════════════════ -->
+  <section class="panel active" id="panel-play" aria-label="Play">
+
+    <div class="dm-output" id="play-output" role="log" aria-live="polite">
+      <div class="speaker-tag" id="play-speaker">The Dungeon Master</div>
+      <div class="output-text" id="play-text">*The DM screen rises slowly, candlelight flickering across hand-drawn maps and strange glyphs.*
+
+Welcome to the table. Before fate is tempted, we must know who sits here.
+
+Head to Session Zero to give your campaign a name, a world, a tone, and a party — then return here and your story begins in earnest.
+
+Or, if you are bold enough: tell me your character's name and class, and I will begin the world around you.
+
+What do you say?</div>
+    </div>
+
+    <div class="voice-row">
+      <div class="voice-indicator" id="voice-dot"></div>
+      <span class="voice-label" id="voice-label">Voice: browser TTS (optional ElevenLabs via env var)</span>
+    </div>
+
+    <div class="input-area">
+      <textarea id="play-input" placeholder="Describe your action, speak as your character, or ask the DM anything...&#10;Press Enter to send · Shift+Enter for new line" rows="3" aria-label="Player input"></textarea>
+      <button class="btn-send" id="play-send" onclick="UI.sendPlay()" aria-label="Send to DM">
+        <i class="ti ti-send" aria-hidden="true"></i> Send
+      </button>
+    </div>
+
+    <div class="quick-row" aria-label="Quick actions">
+      <button class="btn-quick" onclick="UI.quickAction('Describe what I see and sense around me in detail.')">
+        <i class="ti ti-eye" aria-hidden="true"></i> Look around
+      </button>
+      <button class="btn-quick" onclick="UI.quickAction('What are my options right now? Give me 3-4 paths forward.')">
+        <i class="ti ti-list" aria-hidden="true"></i> Options
+      </button>
+      <button class="btn-quick" onclick="UI.quickAction('I approach the nearest NPC and attempt to speak with them.')">
+        <i class="ti ti-message-circle" aria-hidden="true"></i> Talk
+      </button>
+      <button class="btn-quick" onclick="UI.quickAction('We take a short rest to recover. What happens around us while we rest?')">
+        <i class="ti ti-moon" aria-hidden="true"></i> Rest
+      </button>
+      <button class="btn-quick" onclick="UI.quickAction('Recap the story so far in 3-4 sentences — what do we know, what is at stake, what is still mysterious?')">
+        <i class="ti ti-book" aria-hidden="true"></i> Recap
+      </button>
+      <button class="btn-quick" onclick="UI.quickAction('Something unexpected happens — a twist, an interruption, or a new complication enters the scene.')">
+        <i class="ti ti-bolt" aria-hidden="true"></i> Twist
+      </button>
+    </div>
+
+    <div class="row">
+      <span class="label">Ambient scene</span>
+      <button class="btn-quick" onclick="DM.startAmbient('tavern')"><i class="ti ti-building" aria-hidden="true"></i> Tavern</button>
+      <button class="btn-quick" onclick="DM.startAmbient('dungeon')"><i class="ti ti-stairs-down" aria-hidden="true"></i> Dungeon</button>
+      <button class="btn-quick" onclick="DM.startAmbient('forest')"><i class="ti ti-tree" aria-hidden="true"></i> Forest</button>
+      <button class="btn-quick" onclick="DM.startAmbient('combat')"><i class="ti ti-sword" aria-hidden="true"></i> Combat</button>
+      <button class="btn-quick" onclick="DM.startAmbient('mystery')"><i class="ti ti-eye-off" aria-hidden="true"></i> Mystery</button>
+      <button class="btn-quick" onclick="DM.stopAmbient()"><i class="ti ti-player-stop" aria-hidden="true"></i> Silence</button>
+    </div>
+  </section>
+
+  <!-- ══ SESSION ZERO PANEL ════════════════════════ -->
+  <section class="panel" id="panel-session0" aria-label="Session Zero setup">
+
+    <!-- Mirror Import Banner -->
+    <div class="mirror-banner">
+      <div class="mirror-icon"><i class="ti ti-user-circle" aria-hidden="true"></i></div>
+      <div class="mirror-text">
+        <h3>Character Mirror — optional import</h3>
+        <p>If players have used the Character Mirror app, paste their JSON export to bring their full psychological profile into the campaign.</p>
+      </div>
+      <div class="mirror-actions">
+        <button class="btn-mirror" onclick="UI.importMirrorCharacter()">
+          <i class="ti ti-download" aria-hidden="true"></i> Import character
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon"><i class="ti ti-theater" aria-hidden="true"></i></div>
+        <div>
+          <div class="card-title">DM tone</div>
+          <div class="card-sub">Choose the storytelling style for your table</div>
+        </div>
+      </div>
+      <div class="tone-grid">
+        <div class="tone-card" onclick="UI.selectTone(this,'mercer')" data-tone="mercer">
+          <h3><i class="ti ti-feather" aria-hidden="true"></i> Mercer mode</h3>
+          <p>Deep lore, gravitas, vivid NPC voices, dramatic consequences, emotional weight</p>
+        </div>
+        <div class="tone-card" onclick="UI.selectTone(this,'brennan')" data-tone="brennan">
+          <h3><i class="ti ti-flame" aria-hidden="true"></i> Brennan mode</h3>
+          <p>Electric momentum, chaos, comedy timing, devastating twists, YES-AND energy</p>
+        </div>
+        <div class="tone-card selected" onclick="UI.selectTone(this,'blend')" data-tone="blend">
+          <h3><i class="ti ti-yin-yang" aria-hidden="true"></i> Balanced blend</h3>
+          <p>Epic drama meets sharp wit — the best of both DM styles at once</p>
+        </div>
+        <div class="tone-card" onclick="UI.selectTone(this,'dark')" data-tone="dark">
+          <h3><i class="ti ti-skull" aria-hidden="true"></i> Dark & consequential</h3>
+          <p>Moral ambiguity, real costs, permanent consequences, deep NPC shadows</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="field">
+          <label>Campaign name</label>
+          <input type="text" id="s0-campaign-name" placeholder="The Shattered Crown..." />
+        </div>
+        <div class="field">
+          <label>Campaign length</label>
+          <select id="s0-length">
+            <option value="oneshot">One-shot (1 session)</option>
+            <option value="short">Short arc (3–5 sessions)</option>
+            <option value="medium" selected>Standard (8–12 sessions)</option>
+            <option value="epic">Epic campaign (20+ sessions)</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label>World flavor</label>
+          <select id="s0-flavor">
+            <option value="high-fantasy">High fantasy (Greyhawk / Forgotten Realms)</option>
+            <option value="dark-fantasy">Dark fantasy (Ravenloft-adjacent)</option>
+            <option value="nautical">Nautical / seafaring</option>
+            <option value="urban">Urban intrigue (city-based)</option>
+            <option value="planar">Planar / multidimensional</option>
+            <option value="western-frontier">Western frontier (Deadlands-adjacent)</option>
+            <option value="homebrew">Custom homebrew</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Starting location hook</label>
+          <input type="text" id="s0-location" placeholder="A crossroads tavern at the edge of a dying empire..." />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon"><i class="ti ti-users" aria-hidden="true"></i></div>
+        <div><div class="card-title">Party</div><div class="card-sub">Add manually or import from Character Mirror above</div></div>
+      </div>
+      <div class="field">
+        <label>Party members — one per line (Name — Class, e.g. "Calder — Ranger")</label>
+        <textarea id="s0-party" rows="5" placeholder="Calder — Ranger (Wood Elf)&#10;Mira — Cleric of Pelor (Human)&#10;Zook — Rogue (Gnome)&#10;Theron — Fighter (Tiefling)"></textarea>
+      </div>
+      <div id="party-list" class="npc-row" style="min-height:30px;margin-top:4px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>Content limits — what to avoid at this table</label>
+        <input type="text" id="s0-limits" placeholder="e.g. family-friendly, no spiders, no drowning scenarios..." />
+      </div>
+    </div>
+
+    <button class="btn-accent" onclick="UI.launchCampaign()" style="width:100%;justify-content:center;padding:14px;">
+      <i class="ti ti-wand" aria-hidden="true"></i> Begin campaign — launch Session Zero
+    </button>
+  </section>
+
+  <!-- ══ NPCs PANEL ════════════════════════════════ -->
+  <section class="panel" id="panel-npcs" aria-label="NPC roster">
+
+    <div class="row">
+      <span class="label">NPC roster (<span id="stat-npcs">3</span> known)</span>
+      <div class="row-right">
+        <button class="btn-ghost" onclick="UI.generateAndAddNPC('villain')"><i class="ti ti-skull" aria-hidden="true"></i> Villain</button>
+        <button class="btn-ghost" onclick="UI.generateAndAddNPC('ally')"><i class="ti ti-heart" aria-hidden="true"></i> Ally</button>
+        <button class="btn-ghost" onclick="UI.generateAndAddNPC('mysterious')"><i class="ti ti-question-mark" aria-hidden="true"></i> Mystery</button>
+        <button class="btn-ghost" onclick="UI.generateAndAddNPC('shopkeeper')"><i class="ti ti-building-store" aria-hidden="true"></i> Shopkeeper</button>
+      </div>
+    </div>
+
+    <div class="npc-row" id="npc-chips"><!-- rendered by JS --></div>
+
+    <div class="dm-output" id="npc-output">
+      <div class="speaker-tag" id="npc-speaker">NPC Voice</div>
+      <div class="output-text" id="npc-text">Click an NPC above to hear their voice directly. Generate new NPCs with the buttons above — they will be added to your roster and remembered across the campaign.</div>
+    </div>
+
+    <div class="card" id="npc-detail" style="display:none;">
+      <div id="npc-stat-block"></div>
+    </div>
+
+    <hr class="divider" />
+    <div class="row">
+      <span class="label">Interact with active NPC</span>
+    </div>
+    <div class="input-area" style="margin-bottom:0;">
+      <textarea id="npc-interact-input" placeholder="Ask this NPC a question or react to what they said..." rows="2" style="min-height:52px;"></textarea>
+      <button class="btn-send" onclick="UI.interactWithCurrentNPC()" aria-label="Speak to NPC">
+        <i class="ti ti-message-circle" aria-hidden="true"></i> Speak
+      </button>
+    </div>
+  </section>
+
+  <!-- ══ DICE PANEL ════════════════════════════════ -->
+  <section class="panel" id="panel-dice" aria-label="Dice roller">
+
+    <span class="label">Roll dice</span>
+    <div class="dice-row" role="group" aria-label="Dice types">
+      <button class="die-btn" onclick="UI.rollDie(4)" aria-label="Roll d4">
+        <span class="die-icon" aria-hidden="true">◆</span>
+        <span class="die-label">d4</span>
+      </button>
+      <button class="die-btn" onclick="UI.rollDie(6)" aria-label="Roll d6">
+        <span class="die-icon" aria-hidden="true">⬡</span>
+        <span class="die-label">d6</span>
+      </button>
+      <button class="die-btn" onclick="UI.rollDie(8)" aria-label="Roll d8">
+        <span class="die-icon" aria-hidden="true">◈</span>
+        <span class="die-label">d8</span>
+      </button>
+      <button class="die-btn" onclick="UI.rollDie(10)" aria-label="Roll d10">
+        <span class="die-icon" aria-hidden="true">⬟</span>
+        <span class="die-label">d10</span>
+      </button>
+      <button class="die-btn" onclick="UI.rollDie(12)" aria-label="Roll d12">
+        <span class="die-icon" aria-hidden="true">⬠</span>
+        <span class="die-label">d12</span>
+      </button>
+      <button class="die-btn d20" onclick="UI.rollDie(20)" aria-label="Roll d20">
+        <span class="die-icon" style="color:var(--gold)" aria-hidden="true">⬟</span>
+        <span class="die-label">d20</span>
+      </button>
+      <button class="die-btn" onclick="UI.rollDie(100)" aria-label="Roll d100">
+        <span class="die-icon" aria-hidden="true">○</span>
+        <span class="die-label">d100</span>
+      </button>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label>Number of dice</label>
+        <input type="number" id="dice-count" value="1" min="1" max="20" />
+      </div>
+      <div class="field">
+        <label>Modifier (+ or −)</label>
+        <input type="number" id="dice-mod" value="0" min="-10" max="20" />
+      </div>
+    </div>
+
+    <div class="quick-row">
+      <button class="btn-quick" onclick="UI.showRoll(Dice.advantage())"><i class="ti ti-trending-up" aria-hidden="true"></i> Advantage (2d20 high)</button>
+      <button class="btn-quick" onclick="UI.showRoll(Dice.disadvantage())"><i class="ti ti-trending-down" aria-hidden="true"></i> Disadvantage (2d20 low)</button>
+      <button class="btn-quick" onclick="UI.showRoll(Dice.roll(20,4,0))"><i class="ti ti-star" aria-hidden="true"></i> 4d20 (wild magic)</button>
+    </div>
+
+    <div class="roll-display" id="roll-display" style="display:none;">
+      <div class="roll-die-name" id="roll-die-name">d20</div>
+      <div class="roll-number" id="roll-number">—</div>
+      <div class="roll-detail" id="roll-detail"></div>
+    </div>
+
+    <hr class="divider" />
+    <span class="label">Roll history</span>
+    <div class="roll-hist" id="roll-history">
+      <div class="empty"><i class="ti ti-dice-5"></i><p>No rolls yet — let fate decide.</p></div>
+    </div>
+  </section>
+
+  <!-- ══ QUESTS PANEL ══════════════════════════════ -->
+  <section class="panel" id="panel-quests" aria-label="Quests and artifacts">
+
+    <div class="row">
+      <span class="label">Active quests</span>
+      <div class="row-right">
+        <button class="btn-ghost" onclick="UI.generateQuest('main')"><i class="ti ti-crown" aria-hidden="true"></i> Main quest</button>
+        <button class="btn-ghost" onclick="UI.generateQuest('side')"><i class="ti ti-map-pin" aria-hidden="true"></i> Side quest</button>
+        <button class="btn-ghost" onclick="UI.generateQuest('personal')"><i class="ti ti-heart" aria-hidden="true"></i> Personal quest</button>
+        <button class="btn-ghost" onclick="UI.generateQuest('mystery')"><i class="ti ti-eye-off" aria-hidden="true"></i> Mystery</button>
+      </div>
+    </div>
+
+    <div id="quest-list">
+      <div class="empty"><i class="ti ti-map"></i><p>No quests yet. Generate one or discover it through play.</p></div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="row">
+      <span class="label">Magic artifacts</span>
+      <div class="row-right">
+        <button class="btn-ghost" onclick="UI.generateArtifact()"><i class="ti ti-diamond" aria-hidden="true"></i> Generate artifact</button>
+      </div>
+    </div>
+
+    <div id="artifact-list">
+      <div class="empty"><i class="ti ti-diamond"></i><p>No artifacts discovered yet.</p></div>
+    </div>
+
+    <hr class="divider" />
+    <div class="dm-output" id="quest-output" style="display:none;min-height:100px;">
+      <div class="speaker-tag" id="quest-speaker">Quest Lore</div>
+      <div class="output-text" id="quest-text"></div>
+    </div>
+  </section>
+
+  <!-- ══ TRACKER PANEL ════════════════════════════ -->
+  <section class="panel" id="panel-tracker" aria-label="Campaign tracker">
+
+    <div class="grid-3">
+      <div class="stat-card">
+        <div class="stat-val" id="stat-session">1</div>
+        <div class="stat-lbl">Current session</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-quests">0</div>
+        <div class="stat-lbl">Active quests</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-npcs-tracker">3</div>
+        <div class="stat-lbl">Known NPCs</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon"><i class="ti ti-chart-line" aria-hidden="true"></i></div>
+        <div>
+          <div class="card-title">Campaign progress</div>
+          <div class="card-sub" id="progress-label">Session 1 of 8</div>
+        </div>
+        <div class="row-right">
+          <button class="btn-ghost" onclick="UI.advanceSession()"><i class="ti ti-arrow-right" aria-hidden="true"></i> Next session</button>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:12%;"></div></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="label">Session log</span>
+      <div class="row-right">
+        <button class="btn-ghost" onclick="UI.aiLogEntry('story')"><i class="ti ti-book" aria-hidden="true"></i> Story beat</button>
+        <button class="btn-ghost" onclick="UI.aiLogEntry('loot')"><i class="ti ti-coins" aria-hidden="true"></i> Loot</button>
+        <button class="btn-ghost" onclick="UI.aiLogEntry('quest')"><i class="ti ti-map-pin" aria-hidden="true"></i> Quest update</button>
+      </div>
+    </div>
+
+    <div class="session-log" id="session-log">
+      <div class="empty"><i class="ti ti-notebook"></i><p>No log entries yet.</p></div>
+    </div>
+
+    <hr class="divider" />
+    <div class="field">
+      <label>Add manual entry</label>
+      <div class="row" style="gap:8px;">
+        <input type="text" id="manual-log" placeholder="Note a story beat, loot find, or NPC moment..." style="flex:1;" />
+        <button class="btn-ghost" onclick="UI.addManualLog()"><i class="ti ti-plus" aria-hidden="true"></i> Add</button>
+      </div>
+    </div>
+
+    <hr class="divider" />
+    <div class="row">
+      <span class="label">Campaign management</span>
+      <div class="row-right">
+        <button class="btn-ghost" onclick="DM.saveCampaign()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save</button>
+        <button class="btn-ghost" onclick="UI.promptLoadCampaign()"><i class="ti ti-folder-open" aria-hidden="true"></i> Load</button>
+        <button class="btn-danger" onclick="UI.confirmNewCampaign()"><i class="ti ti-trash" aria-hidden="true"></i> New campaign</button>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /#app -->
+
+<script src="/js/dm-engine.js"></script>
+<script src="/js/dm-ui.js"></script>
+<script>
+// ── Extend UI with extra methods ────────────────────────────────────────────
+UI.interactWithCurrentNPC = async function() {
+  const input = document.getElementById('npc-interact-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const currentNPC = document.getElementById('npc-speaker').textContent;
+  if (currentNPC === 'NPC Voice') { UI.toast('Select an NPC first'); return; }
+  const npcObj = DM.state.npcs.find(n => n.name === currentNPC);
+  const textEl = document.getElementById('npc-text');
+  textEl.innerHTML = '<span class="cursor-blink"></span>';
+  try {
+    const system = DM.buildSystem(`You are voicing ${currentNPC}. Stay in character absolutely. ${npcObj ? `Secret: "${npcObj.secret}". They want: "${npcObj.want}". They fear: "${npcObj.fear}".` : ''}`);
+    const reply = await DM.call(`The party says to ${currentNPC}: "${msg}"`, system, 400);
+    await DM.typeOut(reply, textEl);
+    if (document.getElementById('voice-toggle')?.classList.contains('active')) DM.speak(reply.slice(0, 300));
+  } catch(e) { textEl.textContent = `${currentNPC} does not respond.`; }
+};
+
+UI.promptLoadCampaign = async function() {
+  const id = prompt('Enter campaign ID to load:');
+  if (id) await DM.loadCampaign(id.trim());
+};
+
+UI.confirmNewCampaign = function() {
+  if (confirm('Start a new campaign? This will clear the current session from memory (save first if needed).')) {
+    DM.state.campaignName = 'Untitled Campaign';
+    DM.state.party = [];
+    DM.state.history = [];
+    DM.state.log = [];
+    DM.state.quests = [];
+    DM.state.artifacts = [];
+    DM.state.session = 1;
+    DM.state.campaignId = null;
+    document.getElementById('play-text').textContent = 'A new adventure awaits. Head to Session Zero to begin.';
+    UI.rebuildAll();
+    UI.switchTab('session0');
+    UI.toast('New campaign ready — set it up in Session Zero');
+  }
+};
+
+// ── Init ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  UI.renderNEDS();
+  UI.renderNPCChips();
+  UI.updateProgress();
+  window.speechSynthesis?.getVoices(); // preload voices
+});
+</script>
+</body>
+</html>

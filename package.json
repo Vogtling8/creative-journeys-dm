@@ -1,0 +1,15 @@
+{
+  "name": "creative-journeys-dm",
+  "version": "1.0.0",
+  "description": "AI Dungeon Master for Creative Journeys — powered by Claude",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site — no build step required'"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^2.0.0"
+  }
+}
